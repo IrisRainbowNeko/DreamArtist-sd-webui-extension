@@ -293,13 +293,16 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
 
     shared.sd_model.p_losses = p_losses_hook  # hook p_losses
 
+    #maybe fix issue #1
+    shared.sd_model.first_stage_model.to(devices.device)
+
     shared.state.textinfo = "Initializing prompt tuning..."
     shared.state.job_count = steps
 
     filename = os.path.join(shared.cmd_opts.embeddings_dir, f'{embedding_name}.pt')
 
     log_directory = os.path.join(log_directory, datetime.datetime.now().strftime("%Y-%m-%d"), embedding_name)
-    unload = shared.opts.unload_models_when_training
+    unload = False #shared.opts.unload_models_when_training
 
     if save_embedding_every > 0:
         embedding_dir = os.path.join(log_directory, "embeddings")
