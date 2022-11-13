@@ -2,7 +2,7 @@
 This repo is the official ***Stable-Diffusion-webui extension version** implementation of ***"DreamArtist: Towards Controllable One-Shot Text-to-Image Generation via Contrastive Prompt-Tuning"*** 
 with [Stable-Diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui).
 
-Regular version: [DreamArtist](https://github.com/7eu7d7/DreamArtist-stable-diffusion)
+Standalone version: [DreamArtist](https://github.com/7eu7d7/DreamArtist-stable-diffusion)
 
 Everyone is an artist. Rome wasn't built in a day, but your artist dreams can be!
 
