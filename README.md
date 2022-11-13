@@ -41,20 +41,22 @@ Embeddings can be transferred between different models of the same dataset.
 
 ## Pre-trained embeddings:
 
+
+
 [Download](https://github.com/7eu7d7/DreamArtist-stable-diffusion/releases/tag/embeddings_v2)
 
-| Name       | Model            | Image                    | embedding length (P,N) | iter  | lr     | cfg scale |
-|------------|------------------|--------------------------|------------------------|-------|--------|-----------|
-| ani-nahida | animefull-latest | ![](imgs/pre/nahida.jpg) | 3, 6                   | 8000  | 0.0025 | 3         |
-| ani-cocomi | animefull-latest | ![](imgs/pre/cocomi.jpg) | 3, 6                   | 8000  | 0.0025 | 3         |
-| ani-gura   | animefull-latest | ![](imgs/pre/gura.jpg)   | 3, 6                   | 12000 | 0.0025 | 3         |
-| ani-g      | animefull-latest | ![](imgs/pre/g.jpg)      | 3, 10                  | 1500  | 0.003  | 5         |
-| asty-bk    | animefull-latest | ![](imgs/pre/bk.jpg)     | 3, 6                   | 5000  | 0.003  | 3         |
-| asty-gc    | animefull-latest | ![](imgs/pre/gc.jpg)     | 3, 10                  | 1000  | 0.005  | 5         |
-| real-dog   | sd v1.4          | ![](imgs/pre/dog.jpg)    | 3, 3                   | 1000  | 0.005  | 5         |
-| real-sship | sd v1.4          | ![](imgs/pre/sship.jpg)  | 3, 3                   | 3000  | 0.003  | 5         |
-| sty-cyber  | sd v1.4          | ![](imgs/pre/cyber.jpg)  | 3, 5                   | 15000 | 0.0025 | 5         |
-| sty-shuimo | sd v1.4          | ![](imgs/pre/shuimo.jpg) | 3, 5                   | 15000 | 0.0025 | 5         |
+| Name       | Model            | Image                                                              | embedding length (P,N) | iter  | lr     | cfg scale |
+|------------|------------------|--------------------------------------------------------------------|------------------------|-------|--------|-----------|
+| ani-nahida | animefull-latest | <img src="imgs/pre/nahida.jpg" width = "80" height = "80" alt=""/> | 3, 6                   | 8000  | 0.0025 | 3         |
+| ani-cocomi | animefull-latest | <img src="imgs/pre/cocomi.jpg" width = "80" height = "80" alt=""/> | 3, 6                   | 8000  | 0.0025 | 3         |
+| ani-gura   | animefull-latest | <img src="imgs/pre/gura.jpg" width = "80" height = "80" alt=""/>   | 3, 6                   | 12000 | 0.0025 | 3         |
+| ani-g      | animefull-latest | <img src="imgs/pre/g.jpg" width = "80" height = "80" alt=""/>      | 3, 10                  | 1500  | 0.003  | 5         |
+| asty-bk    | animefull-latest | <img src="imgs/pre/bk.jpg" width = "80" height = "80" alt=""/>     | 3, 6                   | 5000  | 0.003  | 3         |
+| asty-gc    | animefull-latest | <img src="imgs/pre/gc.jpg" width = "80" height = "80" alt=""/>     | 3, 10                  | 1000  | 0.005  | 5         |
+| real-dog   | sd v1.4          | <img src="imgs/pre/dog.jpg" width = "80" height = "80" alt=""/>    | 3, 3                   | 1000  | 0.005  | 5         |
+| real-sship | sd v1.4          | <img src="imgs/pre/sship.jpg" width = "80" height = "80" alt=""/>  | 3, 3                   | 3000  | 0.003  | 5         |
+| sty-cyber  | sd v1.4          | <img src="imgs/pre/cyber.jpg" width = "80" height = "80" alt=""/>  | 3, 5                   | 15000 | 0.0025 | 5         |
+| sty-shuimo | sd v1.4          | <img src="imgs/pre/shuimo.jpg" width = "80" height = "80" alt=""/> | 3, 5                   | 15000 | 0.0025 | 5         |
 
 
 # Style Clone
