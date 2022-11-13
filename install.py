@@ -24,7 +24,7 @@ with open('modules/ui.py', 'r', encoding='utf8') as f:
     if ui_file_data.find('params.dream_artist_trigger()') == -1:
         idx_click = ui_file_data.index('create_embedding.click(')
         tabs = get_tabs(ui_file_data, idx_click)
-        ui_file_data = ui_file_data[:idx_click] + 'params.dream_artist_trigger()\n' \
+        ui_file_data = ui_file_data[:idx_click] + 'if hasattr(params, "dream_artist_trigger"): params.dream_artist_trigger()\n' \
                        + tabs + ui_file_data[idx_click:]
 
 
