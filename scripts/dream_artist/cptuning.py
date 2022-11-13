@@ -470,7 +470,7 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
 
             if preview_from_txt2img:
                 p.prompt = preview_prompt
-                p.negative_prompt = preview_prompt.replace(ds.placeholder_token, ds.placeholder_token + '-neg') if use_negative else preview_negative_prompt,
+                p.negative_prompt = preview_negative_prompt
 
                 p.steps = preview_steps
                 p.sampler_index = preview_sampler_index
@@ -480,6 +480,9 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
                 p.height = preview_height
             else:
                 p.prompt = entries[0].cond_text
+                if use_negative:
+                    p.negative_prompt = entries[0].cond_text.replace(ds.placeholder_token, ds.placeholder_token + '-neg')
+                    p.cfg_scale = cfg_scale
                 p.steps = 20
                 p.width = training_width
                 p.height = training_height
