@@ -14,8 +14,8 @@ def on_ui_train_tabs(params):
     with open('./log.txt', 'w', encoding='utf8') as f2:
         f2.write('on_ui_train_tabs')
     with gr.Tab(label="DreamArtist Create embedding"):
-        new_embedding_name = gr.Textbox(label="Name")
-        initialization_text = gr.Textbox(label="Initialization text", value="*")
+        new_embedding_name = gr.Textbox(label="Name", interactive=True)
+        initialization_text = gr.Textbox(label="Initialization text", value="*", interactive=True)
         nvpt = gr.Slider(label="Number of vectors per token", minimum=1, maximum=75, step=1, value=3, interactive=True)
         use_negative = gr.Checkbox(label='Use negative embedding (DreamArtist)', value=True, interactive=True)
         nvpt_neg = gr.Slider(label="Number of negative vectors per token", minimum=1, maximum=75, step=1, value=6, interactive=True)
