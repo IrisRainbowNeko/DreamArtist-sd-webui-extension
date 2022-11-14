@@ -16,9 +16,9 @@ def on_ui_train_tabs(params):
     with gr.Tab(label="DreamArtist Create embedding"):
         new_embedding_name = gr.Textbox(label="Name")
         initialization_text = gr.Textbox(label="Initialization text", value="*")
-        nvpt = gr.Slider(label="Number of vectors per token", minimum=1, maximum=75, step=1, value=1)
+        nvpt = gr.Slider(label="Number of vectors per token", minimum=1, maximum=75, step=1, value=3, interactive=True)
         use_negative = gr.Checkbox(label='Use negative embedding (DreamArtist)', value=True)
-        nvpt_neg = gr.Slider(label="Number of negative vectors per token", minimum=1, maximum=75, step=1, value=1)
+        nvpt_neg = gr.Slider(label="Number of negative vectors per token", minimum=1, maximum=75, step=1, value=6, interactive=True)
         overwrite_old_embedding = gr.Checkbox(value=False, label="Overwrite Old Embedding")
 
         with gr.Row():
@@ -52,8 +52,8 @@ def on_ui_train_tabs(params):
             neg_train = gr.Checkbox(label='Train with DreamArtist', value=True)
             rec_train = gr.Checkbox(label='Train with reconstruction', value=False)
         cfg_scale = gr.Number(label='CFG scale', value=5.0)
-        rec_loss_w = gr.Slider(minimum=0.01, maximum=1.0, step=0.01, label="Reconstruction loss weight", value=1.0)
-        neg_lr_w = gr.Slider(minimum=0.2, maximum=5.0, step=0.05, label="Negative lr weight", value=1.0)
+        rec_loss_w = gr.Slider(minimum=0.01, maximum=1.0, step=0.01, label="Reconstruction loss weight", value=1.0, interactive=True)
+        neg_lr_w = gr.Slider(minimum=0.2, maximum=5.0, step=0.05, label="Negative lr weight", value=1.0, interactive=True)
         disc_path = gr.Textbox(label='Classifier path', placeholder="Path to classifier ckpt, can be empty", value="")
 
         batch_size = gr.Number(label='Batch size', value=1, precision=0)
@@ -61,8 +61,8 @@ def on_ui_train_tabs(params):
         log_directory = gr.Textbox(label='Log directory', placeholder="Path to directory where to write outputs", value="textual_inversion")
         template_file = gr.Textbox(label='Prompt template file',
                                    value=os.path.join(script_path, "textual_inversion_templates", "style_filewords.txt"))
-        training_width = gr.Slider(minimum=64, maximum=2048, step=64, label="Width", value=512)
-        training_height = gr.Slider(minimum=64, maximum=2048, step=64, label="Height", value=512)
+        training_width = gr.Slider(minimum=64, maximum=2048, step=64, label="Width", value=512, interactive=True)
+        training_height = gr.Slider(minimum=64, maximum=2048, step=64, label="Height", value=512, interactive=True)
         steps = gr.Number(label='Max steps', value=100000, precision=0)
         create_image_every = gr.Number(label='Save an image to log directory every N steps, 0 to disable', value=500, precision=0)
         save_embedding_every = gr.Number(label='Save a copy of embedding to log directory every N steps, 0 to disable', value=500, precision=0)
