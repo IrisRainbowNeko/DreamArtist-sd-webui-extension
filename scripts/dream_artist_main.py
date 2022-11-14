@@ -17,22 +17,22 @@ def on_ui_train_tabs(params):
         new_embedding_name = gr.Textbox(label="Name")
         initialization_text = gr.Textbox(label="Initialization text", value="*")
         nvpt = gr.Slider(label="Number of vectors per token", minimum=1, maximum=75, step=1, value=3, interactive=True)
-        use_negative = gr.Checkbox(label='Use negative embedding (DreamArtist)', value=True)
+        use_negative = gr.Checkbox(label='Use negative embedding (DreamArtist)', value=True, interactive=True)
         nvpt_neg = gr.Slider(label="Number of negative vectors per token", minimum=1, maximum=75, step=1, value=6, interactive=True)
-        overwrite_old_embedding = gr.Checkbox(value=False, label="Overwrite Old Embedding")
+        overwrite_old_embedding = gr.Checkbox(value=False, label="Overwrite Old Embedding", interactive=True)
 
         with gr.Row():
             with gr.Column(scale=3):
                 gr.HTML(value="")
 
             with gr.Column():
-                create_embedding = gr.Button(value="Create embedding", variant='primary')
+                create_embedding = gr.Button(value="Create embedding", variant='primary', interactive=True)
 
     with gr.Tab(label="DreamArtist Train"):
         gr.HTML(
             value="<p style='margin-bottom: 0.7em'>Train an embedding or Hypernetwork; you must specify a directory with a set of 1:1 ratio images <a href=\"https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Textual-Inversion\" style=\"font-weight:bold;\">[wiki]</a></p>")
         with gr.Row():
-            train_embedding_name = gr.Dropdown(label='Embedding', elem_id="train_embedding",
+            train_embedding_name = gr.Dropdown(label='Embedding', elem_id="train_embedding", interactive=True,
                                                choices=sorted(sd_hijack.model_hijack.embedding_db.word_embeddings.keys()))
             create_refresh_button(train_embedding_name, sd_hijack.model_hijack.embedding_db.load_textual_inversion_embeddings,
                                   lambda: {"choices": sorted(sd_hijack.model_hijack.embedding_db.word_embeddings.keys())},
@@ -43,35 +43,35 @@ def on_ui_train_tabs(params):
             create_refresh_button(train_hypernetwork_name, shared.reload_hypernetworks,
                                   lambda: {"choices": sorted([x for x in shared.hypernetworks.keys()])}, "refresh_train_hypernetwork_name")
         with gr.Row():
-            embedding_learn_rate = gr.Textbox(label='Embedding Learning rate', placeholder="Embedding Learning rate", value="0.005")
-            hypernetwork_learn_rate = gr.Textbox(label='Hypernetwork Learning rate', placeholder="Hypernetwork Learning rate", value="0.00001")
+            embedding_learn_rate = gr.Textbox(label='Embedding Learning rate', placeholder="Embedding Learning rate", value="0.005", interactive=True)
+            hypernetwork_learn_rate = gr.Textbox(label='Hypernetwork Learning rate', placeholder="Hypernetwork Learning rate", value="0.00001", interactive=True)
 
         # support DreamArtist
         gr.HTML(value='<p style="margin-bottom: 0.7em">DreamArtist</p>')
         with gr.Row():
-            neg_train = gr.Checkbox(label='Train with DreamArtist', value=True)
-            rec_train = gr.Checkbox(label='Train with reconstruction', value=False)
-        cfg_scale = gr.Number(label='CFG scale', value=5.0)
+            neg_train = gr.Checkbox(label='Train with DreamArtist', value=True, interactive=True)
+            rec_train = gr.Checkbox(label='Train with reconstruction', value=False, interactive=True)
+        cfg_scale = gr.Number(label='CFG scale', value=5.0, interactive=True)
         rec_loss_w = gr.Slider(minimum=0.01, maximum=1.0, step=0.01, label="Reconstruction loss weight", value=1.0, interactive=True)
         neg_lr_w = gr.Slider(minimum=0.2, maximum=5.0, step=0.05, label="Negative lr weight", value=1.0, interactive=True)
-        disc_path = gr.Textbox(label='Classifier path', placeholder="Path to classifier ckpt, can be empty", value="")
+        disc_path = gr.Textbox(label='Classifier path', placeholder="Path to classifier ckpt, can be empty", value="", interactive=True)
 
-        batch_size = gr.Number(label='Batch size', value=1, precision=0)
-        dataset_directory = gr.Textbox(label='Dataset directory', placeholder="Path to directory with input images")
-        log_directory = gr.Textbox(label='Log directory', placeholder="Path to directory where to write outputs", value="textual_inversion")
+        batch_size = gr.Number(label='Batch size', value=1, precision=0, interactive=True)
+        dataset_directory = gr.Textbox(label='Dataset directory', placeholder="Path to directory with input images", interactive=True)
+        log_directory = gr.Textbox(label='Log directory', placeholder="Path to directory where to write outputs", value="textual_inversion", interactive=True)
         template_file = gr.Textbox(label='Prompt template file',
-                                   value=os.path.join(script_path, "textual_inversion_templates", "style_filewords.txt"))
+                                   value=os.path.join(script_path, "textual_inversion_templates", "style_filewords.txt"), interactive=True)
         training_width = gr.Slider(minimum=64, maximum=2048, step=64, label="Width", value=512, interactive=True)
         training_height = gr.Slider(minimum=64, maximum=2048, step=64, label="Height", value=512, interactive=True)
-        steps = gr.Number(label='Max steps', value=100000, precision=0)
-        create_image_every = gr.Number(label='Save an image to log directory every N steps, 0 to disable', value=500, precision=0)
-        save_embedding_every = gr.Number(label='Save a copy of embedding to log directory every N steps, 0 to disable', value=500, precision=0)
-        save_image_with_stored_embedding = gr.Checkbox(label='Save images with embedding in PNG chunks', value=True)
-        preview_from_txt2img = gr.Checkbox(label='Read parameters (prompt, etc...) from txt2img tab when making previews', value=False)
+        steps = gr.Number(label='Max steps', value=100000, precision=0, interactive=True)
+        create_image_every = gr.Number(label='Save an image to log directory every N steps, 0 to disable', value=500, precision=0, interactive=True)
+        save_embedding_every = gr.Number(label='Save a copy of embedding to log directory every N steps, 0 to disable', value=500, precision=0, interactive=True)
+        save_image_with_stored_embedding = gr.Checkbox(label='Save images with embedding in PNG chunks', value=True, interactive=True)
+        preview_from_txt2img = gr.Checkbox(label='Read parameters (prompt, etc...) from txt2img tab when making previews', value=False, interactive=True)
 
         with gr.Row():
-            interrupt_training = gr.Button(value="Interrupt")
-            train_embedding = gr.Button(value="Train Embedding", variant='primary')
+            interrupt_training = gr.Button(value="Interrupt", interactive=True)
+            train_embedding = gr.Button(value="Train Embedding", variant='primary', interactive=True)
 
     def setup():
         create_embedding.click(
