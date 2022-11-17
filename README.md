@@ -36,7 +36,7 @@ Then, select positive embedding and set the parameters and image folder path in 
 The corresponding negative embedding is loaded automatically.
 If your VRAM is low or you want save time, you can uncheck the ```reconstruction```.
 
-[Recommended parameters](README.md#pre-trained-embeddings)
+[Recommended parameters](https://github.com/7eu7d7/DreamArtist-sd-webui-extension#pre-trained-embeddings)
 
 ***better to train without filewords***
 ![](imgs/train.jpg)
