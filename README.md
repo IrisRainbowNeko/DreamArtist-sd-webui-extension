@@ -21,16 +21,32 @@ Clone this repo to extension folder.
 git clone https://github.com/7eu7d7/DreamArtist-sd-webui-extension.git extensions/DreamArtist
 ```
 
-## Training
+## Training and Usage
 
 First create the positive and negative embeddings in ```DreamArtist Create Embedding``` Tab.
 ![](imgs/create.jpg)
 
+### Preview Setting
+After that, the ```names``` of the positive and negative embedding (```{name}``` and ```{name}-neg```) should be filled into the
+```txt2img Tab``` with some common descriptions. This will ensure a correct preview image.
+![](imgs/preview.png)
+
+### Train
 Then, select positive embedding and set the parameters and image folder path in the ```DreamArtist Train``` Tab to start training.
 The corresponding negative embedding is loaded automatically.
 If your VRAM is low or you want save time, you can uncheck the ```reconstruction```.
+
+[Recommended parameters](README.md#pre-trained-embeddings)
+
+***better to train without filewords***
 ![](imgs/train.jpg)
 
+Remember to check the option below, otherwise the preview is wrong.
+![](imgs/fromtxt.png)
+
+### Inference
+Fill the trained positive and negative embedding into txt2img to generate with DreamArtist prompt.
+![](imgs/gen.jpg)
 
 ## Tested models (need ema version):
 + Stable Diffusion v1.5
