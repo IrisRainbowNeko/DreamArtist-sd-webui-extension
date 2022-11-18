@@ -83,7 +83,7 @@ def on_ui_tabs():
                     preview_from_txt2img = gr.Checkbox(label='Read parameters (prompt, etc...) from txt2img tab when making previews', value=False,
                                                        interactive=True)
 
-                    gr.HTML(value='<p style="margin-bottom: 0.7em">Experimental features</p>')
+                    gr.HTML(value='<p style="margin-bottom: 0.7em">Experimental features (May be solve the problem of erratic training and difficult to reproduce [set EMA to 0.97])</p>')
                     with gr.Row():
                         ema_w = gr.Number(label='EMA (positive)', value=1.0, interactive=True)
                         ema_rep_step = gr.Number(label='EMA replace steps (positive)', value=25, interactive=True)
