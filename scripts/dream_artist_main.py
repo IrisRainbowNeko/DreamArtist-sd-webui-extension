@@ -83,6 +83,17 @@ def on_ui_tabs():
                     preview_from_txt2img = gr.Checkbox(label='Read parameters (prompt, etc...) from txt2img tab when making previews', value=False,
                                                        interactive=True)
 
+                    gr.HTML(value='<p style="margin-bottom: 0.7em">Experimental features</p>')
+                    with gr.Row():
+                        ema_w = gr.Number(label='EMA (positive)', value=0.97, interactive=True)
+                        ema_rep_step = gr.Number(label='EMA replace steps (positive)', value=25, interactive=True)
+                        ema_w_neg = gr.Number(label='EMA (nagetive)', value=0.97, interactive=True)
+                        ema_rep_step_neg = gr.Number(label='EMA replace steps (nagative)', value=25, interactive=True)
+
+                    with gr.Row():
+                        adam_beta1 = gr.Number(label='beta1', value=0.9, interactive=True)
+                        adam_beta2 = gr.Number(label='beta2', value=0.999, interactive=True)
+
                     with gr.Row():
                         interrupt_training = gr.Button(value="Interrupt", interactive=True)
                         train_embedding = gr.Button(value="Train Embedding", variant='primary', interactive=True)
@@ -136,7 +147,13 @@ def on_ui_tabs():
                 neg_train,
                 rec_train,
                 rec_loss_w,
-                neg_lr_w
+                neg_lr_w,
+                ema_w,
+                ema_rep_step,
+                ema_w_neg,
+                ema_rep_step_neg,
+                adam_beta1,
+                adam_beta2
             ],
             outputs=[
                 da_output,
