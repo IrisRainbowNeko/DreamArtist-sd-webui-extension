@@ -85,9 +85,9 @@ def on_ui_tabs():
 
                     gr.HTML(value='<p style="margin-bottom: 0.7em">Experimental features</p>')
                     with gr.Row():
-                        ema_w = gr.Number(label='EMA (positive)', value=0.97, interactive=True)
+                        ema_w = gr.Number(label='EMA (positive)', value=1.0, interactive=True)
                         ema_rep_step = gr.Number(label='EMA replace steps (positive)', value=25, interactive=True)
-                        ema_w_neg = gr.Number(label='EMA (nagetive)', value=0.97, interactive=True)
+                        ema_w_neg = gr.Number(label='EMA (nagetive)', value=1.0, interactive=True)
                         ema_rep_step_neg = gr.Number(label='EMA replace steps (nagative)', value=25, interactive=True)
 
                     with gr.Row():
