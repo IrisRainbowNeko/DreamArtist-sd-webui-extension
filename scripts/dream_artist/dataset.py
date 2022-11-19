@@ -23,7 +23,7 @@ class DatasetEntry:
         self.cond = None
         self.cond_text = None
 
-class RatioCorp():
+class RatioCrop():
     def __init__(self, width, height):
         self.width=width
         self.height=height
@@ -59,7 +59,7 @@ class PersonalizedBase(Dataset):
         TR = transforms.Compose([
             transforms.Resize(min(self.width, self.height), interpolation=transforms.InterpolationMode.BICUBIC),
             #transforms.CenterCrop(min(self.width, self.height)),
-            RatioCorp(self.width, self.height),
+            RatioCrop(self.width, self.height),
             transforms.ToTensor()
         ])
 
