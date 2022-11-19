@@ -68,7 +68,7 @@ def on_ui_tabs():
 
                     batch_size = gr.Number(label='Batch size', value=1, precision=0, interactive=True)
                     dataset_directory = gr.Textbox(label='Dataset directory', placeholder="Path to directory with input images", interactive=True)
-                    log_directory = gr.Textbox(label='Log directory', placeholder="Path to directory where to write outputs", value="textual_inversion",
+                    log_directory = gr.Textbox(label='Log directory', placeholder="Path to directory where to write outputs", value="dream_artist",
                                                interactive=True)
                     template_file = gr.Textbox(label='Prompt template file',
                                                value=os.path.join(script_path, "textual_inversion_templates", "style_filewords.txt"), interactive=True)
