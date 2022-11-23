@@ -46,15 +46,8 @@ def on_ui_tabs():
                                               lambda: {"choices": sorted(sd_hijack.model_hijack.embedding_db.word_embeddings.keys())},
                                               "refresh_train_embedding_name")
                     with gr.Row():
-                        train_hypernetwork_name = gr.Dropdown(label='Hypernetwork', elem_id="train_hypernetwork",
-                                                              choices=[x for x in shared.hypernetworks.keys()])
-                        create_refresh_button(train_hypernetwork_name, shared.reload_hypernetworks,
-                                              lambda: {"choices": sorted([x for x in shared.hypernetworks.keys()])}, "refresh_train_hypernetwork_name")
-                    with gr.Row():
                         embedding_learn_rate = gr.Textbox(label='Embedding Learning rate', placeholder="Embedding Learning rate", value="0.005",
                                                           interactive=True)
-                        hypernetwork_learn_rate = gr.Textbox(label='Hypernetwork Learning rate', placeholder="Hypernetwork Learning rate", value="0.00001",
-                                                             interactive=True)
 
                     # support DreamArtist
                     gr.HTML(value='<p style="margin-bottom: 0.7em">DreamArtist</p>')
@@ -66,7 +59,9 @@ def on_ui_tabs():
                     neg_lr_w = gr.Slider(minimum=0.2, maximum=5.0, step=0.05, label="Negative lr weight", value=1.0, interactive=True)
                     disc_path = gr.Textbox(label='Classifier path', placeholder="Path to classifier ckpt, can be empty", value="", interactive=True)
 
-                    batch_size = gr.Number(label='Batch size', value=1, precision=0, interactive=True)
+                    with gr.Row():
+                        batch_size = gr.Number(label='Batch size', value=1, precision=0, interactive=True)
+                        grad_accumulation = gr.Number(label='Accumulation steps', value=1, precision=0, interactive=True)
                     dataset_directory = gr.Textbox(label='Dataset directory', placeholder="Path to directory with input images", interactive=True)
                     log_directory = gr.Textbox(label='Log directory', placeholder="Path to directory where to write outputs", value="dream_artist",
                                                interactive=True)
@@ -155,7 +150,8 @@ def on_ui_tabs():
                 ema_rep_step_neg,
                 adam_beta1,
                 adam_beta2,
-                fw_pos_only
+                fw_pos_only,
+                grad_accumulation
             ],
             outputs=[
                 da_output,

@@ -252,20 +252,22 @@ from ldm.modules.diffusionmodules.util import extract_into_tensor
 
 #a_t=0.005
 #sqrt_one_minus_at=np.sqrt(1.-a_t)
-def p_losses_hook(x_start, cond, t, noise=None, scale=5.0):
+def p_losses_hook(x_start, cond, t, noise=None, scale=1.0):
     self=shared.sd_model
     noise = default(noise, lambda: torch.randn_like(x_start))
     x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
 
     # support negative prompt tuning
-    if cond.shape[0] == 2 and scale != 1.0:
+    t_raw = t
+    x_noisy_raw = x_noisy
+    if scale != 1.0:
         x_noisy = torch.cat([x_noisy] * 2)
         t = torch.cat([t] * 2)
 
     model_output = self.apply_model(x_noisy, t, cond)
 
     # support negative prompt tuning
-    if cond.shape[0] == 2 and scale != 1.0:
+    if scale != 1.0:
         e_t_uncond, e_t = model_output.chunk(2)
         model_output = e_t_uncond + scale * (e_t - e_t_uncond)
 
@@ -278,12 +280,11 @@ def p_losses_hook(x_start, cond, t, noise=None, scale=5.0):
         target = noise
     else:
         raise NotImplementedError()
-    target = target[0:1, ...]
 
     loss_simple = self.get_loss(model_output, target, mean=False).mean([1, 2, 3])
     loss_dict.update({f'{prefix}/loss_simple': loss_simple.mean()})
 
-    logvar_t = self.logvar[t].to(self.device)
+    logvar_t = self.logvar[t_raw].to(self.device)
     loss = loss_simple / torch.exp(logvar_t) + logvar_t
     # loss = loss_simple / torch.exp(self.logvar) + self.logvar
     if self.learn_logvar:
@@ -293,21 +294,22 @@ def p_losses_hook(x_start, cond, t, noise=None, scale=5.0):
     loss = self.l_simple_weight * loss.mean()
 
     loss_vlb = self.get_loss(model_output, target, mean=False).mean(dim=(1, 2, 3))
-    loss_vlb = (self.lvlb_weights[t] * loss_vlb).mean()
+    loss_vlb = (self.lvlb_weights[t_raw] * loss_vlb).mean()
     loss_dict.update({f'{prefix}/loss_vlb': loss_vlb})
     loss += (self.original_elbo_weight * loss_vlb)
     loss_dict.update({f'{prefix}/loss': loss})
 
-    img = (x_noisy-extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * model_output)/extract_into_tensor(self.sqrt_alphas_cumprod, t, x_start.shape)
+    img = (x_noisy_raw-extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t_raw, x_start.shape) * model_output)/extract_into_tensor(self.sqrt_alphas_cumprod, t_raw, x_start.shape)
 
     return loss, loss_dict, img
 
 def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_directory, training_width, training_height, steps, create_image_every, save_embedding_every, template_file, save_image_with_stored_embedding, preview_from_txt2img, preview_prompt, preview_negative_prompt, preview_steps, preview_sampler_index, preview_cfg_scale, preview_seed, preview_width, preview_height,
-                    cfg_scale, classifier_path, use_negative, use_rec, rec_loss_w, neg_lr_w, ema_w, ema_rep_step, ema_w_neg, ema_rep_step_neg, adam_beta1, adam_beta2, fw_pos_only):
+                    cfg_scale, classifier_path, use_negative, use_rec, rec_loss_w, neg_lr_w, ema_w, ema_rep_step, ema_w_neg, ema_rep_step_neg, adam_beta1, adam_beta2, fw_pos_only, accumulation_steps):
     save_embedding_every = save_embedding_every or 0
     create_image_every = create_image_every or 0
     validate_train_inputs(embedding_name, learn_rate, batch_size, data_root, template_file, steps, save_embedding_every, create_image_every, log_directory, name="embedding")
 
+    p_losses_backup = shared.sd_model.p_losses
     shared.sd_model.p_losses = p_losses_hook  # hook p_losses
 
     #maybe fix issue #1
@@ -449,15 +451,18 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
                 loss = output[0]
             del x
 
+            loss = loss / accumulation_steps
             losses[embedding.step % losses.shape[0]] = loss.item()
 
-            optimizer.zero_grad()
             loss.backward()
 
-            torch.nn.utils.clip_grad_norm_(embedding.vec, 1)
-            torch.nn.utils.clip_grad_norm_(embedding_neg.vec, 1)
+            if (i + 1) % accumulation_steps == 0:
+                torch.nn.utils.clip_grad_norm_(embedding.vec, 1)
+                torch.nn.utils.clip_grad_norm_(embedding_neg.vec, 1)
 
-            optimizer.step()
+                optimizer.step()
+                optimizer.zero_grad()
+
 
             with torch.no_grad():
                 if ema_w != 1:
@@ -582,6 +587,8 @@ Last saved image: {html.escape(last_saved_image)}<br/>
     filename = os.path.join(shared.cmd_opts.embeddings_dir, f'{embedding_name}.pt')
     save_embedding(embedding, checkpoint, embedding_name, filename, remove_cached_checksum=True, use_negative=use_negative, embedding_neg=embedding_neg)
     shared.sd_model.first_stage_model.to(devices.device)
+
+    shared.sd_model.p_losses = p_losses_backup
 
     return embedding, filename
 
