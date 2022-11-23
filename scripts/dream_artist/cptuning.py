@@ -451,8 +451,11 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
                 loss = output[0]
             del x
 
-            loss = loss / accumulation_steps
             losses[embedding.step % losses.shape[0]] = loss.item()
+            loss = loss / accumulation_steps
+
+            if (i + 2) % accumulation_steps == 0:
+                optimizer.zero_grad()
 
             loss.backward()
 
@@ -461,7 +464,6 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
                 torch.nn.utils.clip_grad_norm_(embedding_neg.vec, 1)
 
                 optimizer.step()
-                optimizer.zero_grad()
 
 
             with torch.no_grad():
