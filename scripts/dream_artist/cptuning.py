@@ -576,7 +576,7 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
         shared.state.textinfo = f"""
 <p>
 Loss: {losses.mean():.7f}<br/>
-Step: {embedding.step}<br/>
+Step: {embedding.step} (Accumulation: {((i + 1) % accumulation_steps) + 1})<br/>
 Last prompt: {html.escape(entries[0].cond_text)}<br/>
 Last negative prompt: {html.escape(entries[0].cond_text_neg.replace(ds.placeholder_token, ds.placeholder_token+'-neg'))}<br/>
 Last saved embedding: {html.escape(last_saved_file)}<br/>
