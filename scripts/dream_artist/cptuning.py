@@ -303,7 +303,7 @@ def p_losses_hook(x_start, cond, t, noise=None, scale=5.0):
     return loss, loss_dict, img
 
 def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_directory, training_width, training_height, steps, create_image_every, save_embedding_every, template_file, save_image_with_stored_embedding, preview_from_txt2img, preview_prompt, preview_negative_prompt, preview_steps, preview_sampler_index, preview_cfg_scale, preview_seed, preview_width, preview_height,
-                    cfg_scale, classifier_path, use_negative, use_rec, rec_loss_w, neg_lr_w, ema_w, ema_rep_step, ema_w_neg, ema_rep_step_neg, adam_beta1, adam_beta2):
+                    cfg_scale, classifier_path, use_negative, use_rec, rec_loss_w, neg_lr_w, ema_w, ema_rep_step, ema_w_neg, ema_rep_step_neg, adam_beta1, adam_beta2, fw_pos_only):
     save_embedding_every = save_embedding_every or 0
     create_image_every = create_image_every or 0
     validate_train_inputs(embedding_name, learn_rate, batch_size, data_root, template_file, steps, save_embedding_every, create_image_every, log_directory, name="embedding")
@@ -356,7 +356,7 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
     # dataset loading may take a while, so input validations and early returns should be done before this
     shared.state.textinfo = f"Preparing dataset from {html.escape(data_root)}..."
     with torch.autocast("cuda"):
-        ds = DA_dataset.PersonalizedBase(data_root=data_root, width=training_width, height=training_height, repeats=shared.opts.training_image_repeats_per_epoch, placeholder_token=embedding_name, model=shared.sd_model, device=devices.device, template_file=template_file, batch_size=batch_size)
+        ds = DA_dataset.PersonalizedBase(data_root=data_root, width=training_width, height=training_height, repeats=shared.opts.training_image_repeats_per_epoch, placeholder_token=embedding_name, model=shared.sd_model, device=devices.device, template_file=template_file, batch_size=batch_size, fw_pos_only=fw_pos_only)
     if unload:
         shared.sd_model.first_stage_model.to(devices.cpu)
 
@@ -429,7 +429,7 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
         with torch.autocast("cuda"):
             c = cond_model([entry.cond_text for entry in entries])
             if use_negative:
-                uc = cond_model([entry.cond_text.replace(ds.placeholder_token, ds.placeholder_token+'-neg') for entry in entries])
+                uc = cond_model([entry.cond_text_neg.replace(ds.placeholder_token, ds.placeholder_token+'-neg') for entry in entries])
                 c_in = torch.cat([uc, c])
             else:
                 c_in = c
@@ -521,7 +521,7 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
             else:
                 p.prompt = entries[0].cond_text
                 if use_negative:
-                    p.negative_prompt = entries[0].cond_text.replace(ds.placeholder_token, ds.placeholder_token + '-neg')
+                    p.negative_prompt = entries[0].cond_text_neg.replace(ds.placeholder_token, ds.placeholder_token + '-neg')
                     p.cfg_scale = cfg_scale
                 p.steps = 20
                 p.width = training_width
@@ -573,6 +573,7 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
 Loss: {losses.mean():.7f}<br/>
 Step: {embedding.step}<br/>
 Last prompt: {html.escape(entries[0].cond_text)}<br/>
+Last negative prompt: {html.escape(entries[0].cond_text_neg.replace(ds.placeholder_token, ds.placeholder_token+'-neg'))}<br/>
 Last saved embedding: {html.escape(last_saved_file)}<br/>
 Last saved image: {html.escape(last_saved_image)}<br/>
 </p>

@@ -21,7 +21,9 @@ class DatasetEntry:
         self.filename_text = filename_text
         self.timg = timg
         self.cond = None
+        self.cond_neg = None
         self.cond_text = None
+        self.cond_text_neg = None
 
 class RatioCrop():
     def __init__(self, width, height):
@@ -34,7 +36,7 @@ class RatioCrop():
 
 
 class PersonalizedBase(Dataset):
-    def __init__(self, data_root, width, height, repeats, flip_p=0.5, placeholder_token="*", model=None, device=None, template_file=None, include_cond=False, batch_size=1):
+    def __init__(self, data_root, width, height, repeats, flip_p=0.5, placeholder_token="*", model=None, device=None, template_file=None, include_cond=False, batch_size=1, fw_pos_only=False):
         re_word = re.compile(shared.opts.dataset_filename_word_regex) if len(shared.opts.dataset_filename_word_regex) > 0 else None
 
         self.placeholder_token = placeholder_token
@@ -48,6 +50,16 @@ class PersonalizedBase(Dataset):
 
         with open(template_file, "r") as file:
             lines = [x.strip() for x in file.readlines()]
+
+        self.flag_filewords=False
+        if template_file.find('filewords')!=-1:
+            if fw_pos_only:
+                self.flag_filewords = True
+            idx_fw = template_file.find('_filewords')
+            template_file_nofw = template_file[:idx_fw]+template_file[idx_fw+len('_filewords'):]
+            with open(template_file_nofw, "r") as file:
+                lines_nofw = [x.strip() for x in file.readlines()]
+            self.lines_nofw = lines_nofw
 
         self.lines = lines
 
@@ -95,8 +107,17 @@ class PersonalizedBase(Dataset):
             entry = DatasetEntry(filename=path, filename_text=filename_text, latent=init_latent, timg=timg)
 
             if include_cond:
-                entry.cond_text = self.create_text(filename_text)
+                sidx = random.randint(0, len(self.lines) - 1)
+
+                entry.cond_text = self.create_text(filename_text, idx=sidx)
                 entry.cond = cond_model([entry.cond_text]).to(devices.cpu).squeeze(0)
+
+                if self.flag_filewords:
+                    entry.cond_text_neg = self.create_text_nofw(idx=sidx)
+                    entry.cond_neg = cond_model([entry.cond_text_neg]).to(devices.cpu).squeeze(0)
+                else:
+                    entry.cond_text_neg = self.create_text(filename_text, idx=sidx)
+                    entry.cond_neg = cond_model([entry.cond_text_neg]).to(devices.cpu).squeeze(0)
 
             self.dataset.append(entry)
 
@@ -110,10 +131,15 @@ class PersonalizedBase(Dataset):
     def shuffle(self):
         self.indexes = np.random.permutation(self.dataset_length)
 
-    def create_text(self, filename_text):
-        text = random.choice(self.lines)
+    def create_text(self, filename_text, idx=None):
+        text = random.choice(self.lines) if idx is None else self.lines[idx]
         text = text.replace("[name]", self.placeholder_token)
         text = text.replace("[filewords]", filename_text)
+        return text
+
+    def create_text_nofw(self, idx=None):
+        text = random.choice(self.lines_nofw) if idx is None else self.lines_nofw[idx]
+        text = text.replace("[name]", self.placeholder_token)
         return text
 
     def __len__(self):
@@ -131,7 +157,13 @@ class PersonalizedBase(Dataset):
             entry = self.dataset[index]
 
             if entry.cond is None:
-                entry.cond_text = self.create_text(entry.filename_text)
+                sidx = random.randint(0, len(self.lines) - 1)
+
+                entry.cond_text = self.create_text(entry.filename_text, idx=sidx)
+                if self.flag_filewords:
+                    entry.cond_text_neg = self.create_text_nofw(idx=sidx)
+                else:
+                    entry.cond_text_neg = self.create_text(entry.filename_text, idx=sidx)
 
             res.append(entry)
 

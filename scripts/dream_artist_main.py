@@ -72,6 +72,7 @@ def on_ui_tabs():
                                                interactive=True)
                     template_file = gr.Textbox(label='Prompt template file',
                                                value=os.path.join(script_path, "textual_inversion_templates", "style_filewords.txt"), interactive=True)
+                    fw_pos_only = gr.Checkbox(label='Positive "filewords" only', value=False, interactive=True)
                     training_width = gr.Slider(minimum=64, maximum=2048, step=64, label="Width", value=512, interactive=True)
                     training_height = gr.Slider(minimum=64, maximum=2048, step=64, label="Height", value=512, interactive=True)
                     steps = gr.Number(label='Max steps', value=100000, precision=0, interactive=True)
@@ -153,7 +154,8 @@ def on_ui_tabs():
                 ema_w_neg,
                 ema_rep_step_neg,
                 adam_beta1,
-                adam_beta2
+                adam_beta2,
+                fw_pos_only
             ],
             outputs=[
                 da_output,
