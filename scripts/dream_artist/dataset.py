@@ -15,9 +15,10 @@ re_numbers_at_start = re.compile(r"^[-\d]+\s*")
 
 
 class DatasetEntry:
-    def __init__(self, filename=None, latent=None, filename_text=None, timg=None):
+    def __init__(self, filename=None, latent=None, filename_text=None, timg=None, att_mask=None):
         self.filename = filename
         self.latent = latent
+        self.att_mask = att_mask
         self.filename_text = filename_text
         self.timg = timg
         self.cond = None
@@ -80,6 +81,8 @@ class PersonalizedBase(Dataset):
         self.image_paths = [os.path.join(data_root, file_path) for file_path in os.listdir(data_root)]
         print("Preparing dataset...")
         for path in tqdm.tqdm(self.image_paths):
+            if path[:path.rfind('.')].endswith('_att'):
+                continue
             try:
                 image = Image.open(path).convert('RGB')
             except Exception:
@@ -118,6 +121,18 @@ class PersonalizedBase(Dataset):
                 else:
                     entry.cond_text_neg = self.create_text(filename_text, idx=sidx)
                     entry.cond_neg = cond_model([entry.cond_text_neg]).to(devices.cpu).squeeze(0)
+
+            att_path=path[:path.rfind('.')] + '_att' + path[path.rfind('.'):]
+            if os.path.exists(att_path):
+                print(att_path)
+                att_mask = Image.open(att_path).convert('L').resize((self.width//8, self.height//8), PIL.Image.BICUBIC)
+                np_mask = np.array(att_mask).astype(float)[:,:,None]
+                np_mask[np_mask<=127+0.1]=(np_mask[np_mask<=127+0.1]/127.)*0.99+0.01
+                np_mask[np_mask>127]=((np_mask[np_mask>127]-127)/128.)*4+1
+
+                torchdata = torch.from_numpy(np_mask).to(device=device, dtype=torch.float32)
+                torchdata = torch.moveaxis(torchdata, 2, 0)
+                entry.att_mask = torchdata
 
             self.dataset.append(entry)
 

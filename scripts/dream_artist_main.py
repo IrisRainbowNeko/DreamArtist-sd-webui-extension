@@ -48,12 +48,15 @@ def on_ui_tabs():
                     with gr.Row():
                         embedding_learn_rate = gr.Textbox(label='Embedding Learning rate', placeholder="Embedding Learning rate", value="0.005",
                                                           interactive=True)
+                        unet_lr = gr.Textbox(label='Unet Learning rate', placeholder="Unet Learning rate", value="0.000005",
+                                                          interactive=True, visible=False)
 
                     # support DreamArtist
                     gr.HTML(value='<p style="margin-bottom: 0.7em">DreamArtist</p>')
                     with gr.Row():
                         neg_train = gr.Checkbox(label='Train with DreamArtist', value=True, interactive=True)
                         rec_train = gr.Checkbox(label='Train with reconstruction', value=False, interactive=True)
+                        unet_train = gr.Checkbox(label='Train U-Net', value=False, interactive=True, visible=False)
                     cfg_scale = gr.Number(label='CFG scale', value=5.0, interactive=True)
                     rec_loss_w = gr.Slider(minimum=0.01, maximum=1.0, step=0.01, label="Reconstruction loss weight", value=1.0, interactive=True)
                     neg_lr_w = gr.Slider(minimum=0.2, maximum=5.0, step=0.05, label="Negative lr weight", value=1.0, interactive=True)
@@ -151,7 +154,10 @@ def on_ui_tabs():
                 adam_beta1,
                 adam_beta2,
                 fw_pos_only,
-                grad_accumulation
+                grad_accumulation,
+
+                unet_train,
+                unet_lr
             ],
             outputs=[
                 da_output,

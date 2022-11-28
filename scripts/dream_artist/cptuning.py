@@ -11,6 +11,9 @@ from copy import deepcopy
 
 from PIL import Image, PngImagePlugin
 from torch.nn import functional as F
+from transformers import get_constant_schedule_with_warmup, get_cosine_schedule_with_warmup
+from torch.optim.lr_scheduler import LambdaLR
+import math
 
 from modules import shared, devices, sd_hijack, processing, sd_models, images
 import scripts.dream_artist.dataset as DA_dataset
@@ -217,7 +220,7 @@ def write_loss(log_directory, filename, step, epoch_len, values):
             csv_writer.writeheader()
 
         epoch = step // epoch_len
-        epoch_step = step % epoch_len 
+        epoch_step = step % epoch_len
 
         csv_writer.writerow({
             "step": step + 1,
@@ -252,7 +255,7 @@ from ldm.modules.diffusionmodules.util import extract_into_tensor
 
 #a_t=0.005
 #sqrt_one_minus_at=np.sqrt(1.-a_t)
-def p_losses_hook(x_start, cond, t, noise=None, scale=1.0):
+def p_losses_hook(x_start, cond, t, noise=None, scale=1.0, att_mask=None):
     self=shared.sd_model
     noise = default(noise, lambda: torch.randn_like(x_start))
     x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
@@ -281,7 +284,10 @@ def p_losses_hook(x_start, cond, t, noise=None, scale=1.0):
     else:
         raise NotImplementedError()
 
-    loss_simple = self.get_loss(model_output, target, mean=False).mean([1, 2, 3])
+    loss_simple = self.get_loss(model_output, target, mean=False)
+    if att_mask is not None:
+        loss_simple=loss_simple*att_mask
+    loss_simple=loss_simple.mean([1, 2, 3])
     loss_dict.update({f'{prefix}/loss_simple': loss_simple.mean()})
 
     logvar_t = self.logvar[t_raw].to(self.device)
@@ -293,7 +299,10 @@ def p_losses_hook(x_start, cond, t, noise=None, scale=1.0):
 
     loss = self.l_simple_weight * loss.mean()
 
-    loss_vlb = self.get_loss(model_output, target, mean=False).mean(dim=(1, 2, 3))
+    loss_vlb = self.get_loss(model_output, target, mean=False)
+    if att_mask is not None:
+        loss_vlb=loss_vlb*att_mask
+    loss_vlb=loss_vlb.mean(dim=(1, 2, 3))
     loss_vlb = (self.lvlb_weights[t_raw] * loss_vlb).mean()
     loss_dict.update({f'{prefix}/loss_vlb': loss_vlb})
     loss += (self.original_elbo_weight * loss_vlb)
@@ -304,7 +313,8 @@ def p_losses_hook(x_start, cond, t, noise=None, scale=1.0):
     return loss, loss_dict, img
 
 def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_directory, training_width, training_height, steps, create_image_every, save_embedding_every, template_file, save_image_with_stored_embedding, preview_from_txt2img, preview_prompt, preview_negative_prompt, preview_steps, preview_sampler_index, preview_cfg_scale, preview_seed, preview_width, preview_height,
-                    cfg_scale, classifier_path, use_negative, use_rec, rec_loss_w, neg_lr_w, ema_w, ema_rep_step, ema_w_neg, ema_rep_step_neg, adam_beta1, adam_beta2, fw_pos_only, accumulation_steps):
+                    cfg_scale, classifier_path, use_negative, use_rec, rec_loss_w, neg_lr_w, ema_w, ema_rep_step, ema_w_neg, ema_rep_step_neg, adam_beta1, adam_beta2, fw_pos_only, accumulation_steps,
+                    unet_train, unet_lr):
     save_embedding_every = save_embedding_every or 0
     create_image_every = create_image_every or 0
     validate_train_inputs(embedding_name, learn_rate, batch_size, data_root, template_file, steps, save_embedding_every, create_image_every, log_directory, name="embedding")
@@ -398,12 +408,52 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
     if disc is not None:
         print('use convnext discriminator')
 
+    unet = shared.sd_model.model.diffusion_model
+    unet_down = unet.input_blocks
+    unet_up = unet.output_blocks
+    #,print(shared.sd_model.model.diffusion_model)
+
+    def get_convs(block):
+        return block[1].norm, block[1].proj_in, block[1].proj_out
+
+    unet_part_list = [
+        unet_down[1],
+        unet_down[2][0], *get_convs(unet_down[2]), unet_down[3],
+        unet_down[4][0], *get_convs(unet_down[4]), unet_down[5][0], *get_convs(unet_down[5]), unet_down[6],
+
+        unet_up[8][0], *get_convs(unet_up[8]), unet_up[8][2], unet_up[7][0], *get_convs(unet_up[7]),
+        unet_up[10][0], *get_convs(unet_up[10]), unet_up[9][0], *get_convs(unet_up[9]),
+        unet_up[11],
+    ]
+
+    if unet_train:
+        for layer in unet_part_list:
+            layer.requires_grad_(True)
+        unet.train()
+    unet_lr = float(unet_lr)
+
+    num_warmup_steps = 100
+    num_training_steps = steps
+    num_cycles = 0.5
+    rate_min = 0.1
+    def lr_lambda_cos(current_step):
+        if current_step < num_warmup_steps:
+            return float(current_step) / float(max(1, num_warmup_steps))
+        progress = float(current_step - num_warmup_steps) / float(max(1, num_training_steps - num_warmup_steps))
+        rate = 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress))
+        return max(0.0, rate_min+rate*(1-rate_min))
+
     if use_negative:
         #optimizer = torch.optim.AdamW([embedding.vec, embedding_neg.vec], lr=scheduler.learn_rate)
         optimizer = torch.optim.AdamW([
-            {'params': embedding.vec},
-            {'params': embedding_neg.vec, 'lr': scheduler.learn_rate*neg_lr_w}], lr=scheduler.learn_rate,
-            betas=(adam_beta1, adam_beta2))
+                {'params': embedding.vec},
+                {'params': embedding_neg.vec, 'lr': scheduler.learn_rate*neg_lr_w},
+            ], lr=scheduler.learn_rate, betas=(adam_beta1, adam_beta2))
+        optimizer_unet = torch.optim.AdamW([
+            {'params': layer.parameters(), 'initial_lr': unet_lr} for layer in unet_part_list
+        ], lr=unet_lr, eps=1e-6)
+        #scheduler_unet = get_constant_schedule_with_warmup(optimizer_unet, num_warmup_steps=100, last_epoch=ititial_step)
+        scheduler_unet = LambdaLR(optimizer_unet, lr_lambda_cos, ititial_step)
     else:
         optimizer = torch.optim.AdamW([embedding.vec], lr=scheduler.learn_rate)
 
@@ -429,15 +479,17 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
             break
 
         with torch.autocast("cuda"):
-            c = cond_model([entry.cond_text for entry in entries])
+            #c = cond_model([entry.cond_text for entry in entries])
             if use_negative:
-                uc = cond_model([entry.cond_text_neg.replace(ds.placeholder_token, ds.placeholder_token+'-neg') for entry in entries])
-                c_in = torch.cat([uc, c])
+                #uc = cond_model([entry.cond_text_neg.replace(ds.placeholder_token, ds.placeholder_token+'-neg') for entry in entries])
+                c_in = cond_model([entry.cond_text_neg.replace(ds.placeholder_token, ds.placeholder_token+'-neg') for entry in entries]+
+                                  [entry.cond_text for entry in entries])
             else:
-                c_in = c
+                c_in = cond_model([entry.cond_text for entry in entries])
 
             x = torch.stack([entry.latent for entry in entries]).to(devices.device)
-            output = shared.sd_model(x, c_in, scale=cfg_scale)
+            att_mask = torch.stack([(entry.att_mask if entry.att_mask is not None else torch.ones_like(entry.latent)) for entry in entries]).to(devices.device)
+            output = shared.sd_model(x, c_in, scale=cfg_scale, att_mask=att_mask)
 
             if disc is not None or use_rec:
                 x_samples_ddim = shared.sd_model.decode_first_stage.__wrapped__(shared.sd_model, output[2])  # forward with grad
@@ -456,15 +508,21 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
 
             if (i + 2) % accumulation_steps == 0:
                 optimizer.zero_grad()
+                if unet_train:
+                    optimizer_unet.zero_grad()
 
             loss.backward()
 
             if (i + 1) % accumulation_steps == 0:
+                if unet_train:
+                    for layer in unet_part_list:
+                        torch.nn.utils.clip_grad_norm_(layer.parameters(), 1)
+                    optimizer_unet.step()
+                    scheduler_unet.step()
+
                 torch.nn.utils.clip_grad_norm_(embedding.vec, 1)
                 torch.nn.utils.clip_grad_norm_(embedding_neg.vec, 1)
-
                 optimizer.step()
-
 
             with torch.no_grad():
                 if ema_w != 1:
@@ -484,14 +542,15 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
 
         pbar.set_description(f"[Epoch {epoch_num}: {epoch_step}/{len(ds)}]loss: {losses.mean():.7f}, "
                              f"grad:{embedding.vec.grad.detach().cpu().abs().mean().item():.7f}, "
-                             f"grad_neg:{embedding_neg.vec.grad.detach().cpu().abs().mean().item() if use_negative else 0:.7f}")
+                             f"grad_neg:{embedding_neg.vec.grad.detach().cpu().abs().mean().item() if use_negative else 0:.7f}, ")
+                             #f"lr_unet:{optimizer_unet.state_dict()['param_groups'][0]['lr']}")
 
         if embedding_dir is not None and steps_done % save_embedding_every == 0:
             # Before saving, change name to match current checkpoint.
             embedding_name_every = f'{embedding_name}-{steps_done}'
             last_saved_file = os.path.join(embedding_dir, f'{embedding_name_every}.pt')
             save_embedding(embedding, checkpoint, embedding_name_every, last_saved_file, remove_cached_checksum=True,
-                           use_negative=use_negative, embedding_neg=embedding_neg)
+                           use_negative=use_negative, embedding_neg=embedding_neg, unet_layers=unet_part_list)
             embedding_yet_to_be_embedded = True
 
         write_loss(log_directory, "prompt_tuning_loss.csv", embedding.step, len(ds), {
@@ -587,14 +646,18 @@ Last saved image: {html.escape(last_saved_image)}<br/>
 """
 
     filename = os.path.join(shared.cmd_opts.embeddings_dir, f'{embedding_name}.pt')
-    save_embedding(embedding, checkpoint, embedding_name, filename, remove_cached_checksum=True, use_negative=use_negative, embedding_neg=embedding_neg)
+    save_embedding(embedding, checkpoint, embedding_name, filename, remove_cached_checksum=True, use_negative=use_negative, embedding_neg=embedding_neg,
+                   unet_layers=unet_part_list)
     shared.sd_model.first_stage_model.to(devices.device)
 
     shared.sd_model.p_losses = p_losses_backup
+    for layer in unet_part_list:
+        layer.requires_grad_(True)
+    unet.eval()
 
     return embedding, filename
 
-def save_embedding(embedding, checkpoint, embedding_name, filename, remove_cached_checksum=True, use_negative=False, embedding_neg=None):
+def save_embedding(embedding, checkpoint, embedding_name, filename, remove_cached_checksum=True, use_negative=False, embedding_neg=None, unet_layers=None):
     old_embedding_name = embedding.name
     old_sd_checkpoint = embedding.sd_checkpoint if hasattr(embedding, "sd_checkpoint") else None
     old_sd_checkpoint_name = embedding.sd_checkpoint_name if hasattr(embedding, "sd_checkpoint_name") else None
@@ -614,6 +677,8 @@ def save_embedding(embedding, checkpoint, embedding_name, filename, remove_cache
                 embedding_neg.cached_checksum = None
             embedding_neg.name = embedding_name+'-neg'
             embedding_neg.save(f'{filename[:-3]}-neg.pt')
+
+            #torch.save({f'part{i}':layer.state_dict() for i,layer in enumerate(unet_layers)}, f'{filename[:-3]}-unet.ckpt')
     except:
         embedding.sd_checkpoint = old_sd_checkpoint
         embedding.sd_checkpoint_name = old_sd_checkpoint_name
@@ -625,4 +690,6 @@ def save_embedding(embedding, checkpoint, embedding_name, filename, remove_cache
             embedding_neg.sd_checkpoint_name = old_sd_checkpoint_name
             embedding_neg.name = old_embedding_name+'-neg'
             embedding_neg.cached_checksum = old_cached_checksum
+
+            #torch.save({f'part{i}': layer.state_dict() for i, layer in enumerate(unet_layers)}, f'{filename[:-3]}-unet.ckpt')
         raise
