@@ -255,7 +255,7 @@ from ldm.modules.diffusionmodules.util import extract_into_tensor
 
 #a_t=0.005
 #sqrt_one_minus_at=np.sqrt(1.-a_t)
-def p_losses_hook(x_start, cond, t, noise=None, scale=1.0, att_mask=None):
+def p_losses_hook(x_start, cond, t, noise=None, scale=1.0, att_mask=None, dy_cfg=False):
     self=shared.sd_model
     noise = default(noise, lambda: torch.randn_like(x_start))
     x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
@@ -272,7 +272,8 @@ def p_losses_hook(x_start, cond, t, noise=None, scale=1.0, att_mask=None):
     # support negative prompt tuning
     if scale != 1.0:
         e_t_uncond, e_t = model_output.chunk(2)
-        model_output = e_t_uncond + scale * (e_t - e_t_uncond)
+        rate = t_raw/(self.num_timesteps-1) if dy_cfg else 1
+        model_output = e_t_uncond + ((scale-1.0)*rate+1.0) * (e_t - e_t_uncond)
 
     loss_dict = {}
     prefix = 'train' if self.training else 'val'
@@ -314,7 +315,7 @@ def p_losses_hook(x_start, cond, t, noise=None, scale=1.0, att_mask=None):
 
 def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_directory, training_width, training_height, steps, create_image_every, save_embedding_every, template_file, save_image_with_stored_embedding, preview_from_txt2img, preview_prompt, preview_negative_prompt, preview_steps, preview_sampler_index, preview_cfg_scale, preview_seed, preview_width, preview_height,
                     cfg_scale, classifier_path, use_negative, use_rec, rec_loss_w, neg_lr_w, ema_w, ema_rep_step, ema_w_neg, ema_rep_step_neg, adam_beta1, adam_beta2, fw_pos_only, accumulation_steps,
-                    unet_train, unet_lr):
+                    dy_cfg, unet_train, unet_lr):
     save_embedding_every = save_embedding_every or 0
     create_image_every = create_image_every or 0
     validate_train_inputs(embedding_name, learn_rate, batch_size, data_root, template_file, steps, save_embedding_every, create_image_every, log_directory, name="embedding")
@@ -489,7 +490,7 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
 
             x = torch.stack([entry.latent for entry in entries]).to(devices.device)
             att_mask = torch.stack([(entry.att_mask if entry.att_mask is not None else torch.ones_like(entry.latent)) for entry in entries]).to(devices.device)
-            output = shared.sd_model(x, c_in, scale=cfg_scale, att_mask=att_mask)
+            output = shared.sd_model(x, c_in, scale=cfg_scale, att_mask=att_mask, dy_cfg=dy_cfg)
 
             if disc is not None or use_rec:
                 x_samples_ddim = shared.sd_model.decode_first_stage.__wrapped__(shared.sd_model, output[2])  # forward with grad
