@@ -56,7 +56,6 @@ def on_ui_tabs():
                     with gr.Row():
                         neg_train = gr.Checkbox(label='Train with DreamArtist', value=True, interactive=True)
                         rec_train = gr.Checkbox(label='Train with reconstruction', value=False, interactive=True)
-                        dy_cfg = gr.Checkbox(label='Dynamic CFG scale', value=False, interactive=True)
                         unet_train = gr.Checkbox(label='Train U-Net', value=False, interactive=True, visible=False)
                     cfg_scale = gr.Number(label='CFG scale', value=5.0, interactive=True)
                     rec_loss_w = gr.Slider(minimum=0.01, maximum=1.0, step=0.01, label="Reconstruction loss weight", value=1.0, interactive=True)
@@ -156,8 +155,6 @@ def on_ui_tabs():
                 adam_beta2,
                 fw_pos_only,
                 grad_accumulation,
-
-                dy_cfg,
 
                 unet_train,
                 unet_lr

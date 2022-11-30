@@ -255,7 +255,7 @@ from ldm.modules.diffusionmodules.util import extract_into_tensor
 
 #a_t=0.005
 #sqrt_one_minus_at=np.sqrt(1.-a_t)
-def p_losses_hook(x_start, cond, t, noise=None, scale=1.0, att_mask=None, dy_cfg=False):
+def p_losses_hook(x_start, cond, t, noise=None, scale=(1.0,1.0), att_mask=None, dy_cfg_f='ln'):
     self=shared.sd_model
     noise = default(noise, lambda: torch.randn_like(x_start))
     x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
@@ -263,17 +263,28 @@ def p_losses_hook(x_start, cond, t, noise=None, scale=1.0, att_mask=None, dy_cfg
     # support negative prompt tuning
     t_raw = t
     x_noisy_raw = x_noisy
-    if scale != 1.0:
+    if scale[1] != 1.0:
         x_noisy = torch.cat([x_noisy] * 2)
         t = torch.cat([t] * 2)
 
     model_output = self.apply_model(x_noisy, t, cond)
 
     # support negative prompt tuning
-    if scale != 1.0:
+    if scale[1] != 1.0:
         e_t_uncond, e_t = model_output.chunk(2)
-        rate = t_raw/(self.num_timesteps-1) if dy_cfg else 1
-        model_output = e_t_uncond + ((scale-1.0)*rate+1.0) * (e_t - e_t_uncond)
+        if scale[0] != scale[1]:
+            rate = t_raw / (self.num_timesteps - 1)
+            if dy_cfg_f=='cos':
+                rate = torch.cos((rate-1)*math.pi/2)
+            elif dy_cfg_f=='cos2':
+                rate = 1-torch.cos(rate*math.pi/2)
+            elif dy_cfg_f=='ln':
+                pass
+            else:
+                rate = eval(dy_cfg_f)
+        else:
+            rate = 1
+        model_output = e_t_uncond + ((scale[1]-scale[0])*rate+scale[0]) * (e_t - e_t_uncond)
 
     loss_dict = {}
     prefix = 'train' if self.training else 'val'
@@ -313,9 +324,20 @@ def p_losses_hook(x_start, cond, t, noise=None, scale=1.0, att_mask=None, dy_cfg
 
     return loss, loss_dict, img
 
+def get_cfg_range(cfg_text:str):
+    dy_cfg_f='ln'
+    if cfg_text.find(':')!=-1:
+        cfg_text, dy_cfg_f = cfg_text.split(':')
+
+    if cfg_text.find('-')!=-1:
+        l, h = cfg_text.split('-')
+        return float(l), float(h), dy_cfg_f
+    else:
+        return float(cfg_text), float(cfg_text), dy_cfg_f
+
 def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_directory, training_width, training_height, steps, create_image_every, save_embedding_every, template_file, save_image_with_stored_embedding, preview_from_txt2img, preview_prompt, preview_negative_prompt, preview_steps, preview_sampler_index, preview_cfg_scale, preview_seed, preview_width, preview_height,
                     cfg_scale, classifier_path, use_negative, use_rec, rec_loss_w, neg_lr_w, ema_w, ema_rep_step, ema_w_neg, ema_rep_step_neg, adam_beta1, adam_beta2, fw_pos_only, accumulation_steps,
-                    dy_cfg, unet_train, unet_lr):
+                    unet_train, unet_lr):
     save_embedding_every = save_embedding_every or 0
     create_image_every = create_image_every or 0
     validate_train_inputs(embedding_name, learn_rate, batch_size, data_root, template_file, steps, save_embedding_every, create_image_every, log_directory, name="embedding")
@@ -389,10 +411,12 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
         'lr': learn_rate,
         'bs': batch_size,
         'cfg': cfg_scale,
-        'size': training_height,
+        'size': [training_width, training_height],
         'neg': use_negative,
         'rec': use_rec,
         'prompt_len': embedding.vec.shape,
+        'ema': [ema_w, ema_w_neg],
+        'ema_steps': [ema_rep_step, ema_rep_step_neg],
     }
     if use_negative:
         hyper_param['prompt_len_neg'] = embedding_neg.vec.shape
@@ -403,6 +427,8 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
     hyper_param = json.dumps(hyper_param, sort_keys=True, indent=4)
     with open(os.path.join(log_directory, 'hyper_param.json'), 'w') as f:
         f.write(hyper_param)
+
+    cfg_l, cfg_h, dy_cfg_f = get_cfg_range(cfg_scale)
 
     disc = XPDiscriminator(classifier_path) if (classifier_path is not None) and os.path.exists(classifier_path) else None
 
@@ -490,7 +516,8 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
 
             x = torch.stack([entry.latent for entry in entries]).to(devices.device)
             att_mask = torch.stack([(entry.att_mask if entry.att_mask is not None else torch.ones_like(entry.latent)) for entry in entries]).to(devices.device)
-            output = shared.sd_model(x, c_in, scale=cfg_scale, att_mask=att_mask, dy_cfg=dy_cfg)
+
+            output = shared.sd_model(x, c_in, scale=(cfg_l, cfg_h), att_mask=att_mask, dy_cfg_f=dy_cfg_f)
 
             if disc is not None or use_rec:
                 x_samples_ddim = shared.sd_model.decode_first_stage.__wrapped__(shared.sd_model, output[2])  # forward with grad
@@ -543,8 +570,8 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
 
         pbar.set_description(f"[Epoch {epoch_num}: {epoch_step}/{len(ds)}]loss: {losses.mean():.7f}, "
                              f"grad:{embedding.vec.grad.detach().cpu().abs().mean().item():.7f}, "
-                             f"grad_neg:{embedding_neg.vec.grad.detach().cpu().abs().mean().item() if use_negative else 0:.7f}, ")
-                             #f"lr_unet:{optimizer_unet.state_dict()['param_groups'][0]['lr']}")
+                             f"grad_neg:{embedding_neg.vec.grad.detach().cpu().abs().mean().item() if use_negative else 0:.7f}, "
+                             f"lr_unet:{optimizer_unet.state_dict()['param_groups'][0]['lr']}")
 
         if embedding_dir is not None and steps_done % save_embedding_every == 0:
             # Before saving, change name to match current checkpoint.
