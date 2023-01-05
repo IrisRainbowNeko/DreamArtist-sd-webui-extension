@@ -127,7 +127,7 @@ class PersonalizedBase(Dataset):
                 print(att_path)
                 att_mask = Image.open(att_path).convert('L').resize((self.width//8, self.height//8), PIL.Image.BICUBIC)
                 np_mask = np.array(att_mask).astype(float)[:,:,None]
-                np_mask[np_mask<=127+0.1]=(np_mask[np_mask<=127+0.1]/127.)*0.99+0.01
+                np_mask[np_mask<=127+0.1]=(np_mask[np_mask<=127+0.1]/127.)#*0.99+0.01
                 np_mask[np_mask>127]=((np_mask[np_mask>127]-127)/128.)*4+1
 
                 torchdata = torch.from_numpy(np_mask).to(device=device, dtype=torch.float32)

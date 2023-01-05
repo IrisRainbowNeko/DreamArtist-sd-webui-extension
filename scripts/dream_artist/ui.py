@@ -7,11 +7,13 @@ import scripts.dream_artist as dream_artist
 from modules import sd_hijack, shared
 
 
-def create_embedding(name, initialization_text, nvpt, overwrite_old, use_negative, nvpt_neg):
+def create_embedding(name, initialization_text, initialization_text_neg, nvpt, overwrite_old, nvpt_neg, seed):
+    dream_artist.cptuning.set_seed(seed)
+
     filename = dream_artist.cptuning.create_embedding(name, nvpt, overwrite_old, init_text=initialization_text)
-    if use_negative:
-        dream_artist.cptuning.create_embedding(name+'-neg', nvpt_neg, overwrite_old, init_text=initialization_text)
-        filename=f'{filename} and {filename[:-3]}-neg.pt'
+    filename_neg = dream_artist.cptuning.create_embedding(name+'-neg', nvpt_neg, overwrite_old, init_text=initialization_text_neg)
+
+    filename=f'{filename} and {filename_neg}'
 
     sd_hijack.model_hijack.embedding_db.load_textual_inversion_embeddings()
 
@@ -40,3 +42,19 @@ Embedding saved to {html.escape(filename)} and {html.escape(filename[:-3]+"-neg.
         if not apply_optimizations:
             sd_hijack.apply_optimizations()
 
+
+def proc_att(*args):
+
+    apply_optimizations = shared.opts.training_xattention_optimizations
+    try:
+        if not apply_optimizations:
+            sd_hijack.undo_optimizations()
+
+        dream_artist.cptuning.proc_att(*args)
+
+        return "process finish", ""
+    except Exception:
+        raise
+    finally:
+        if not apply_optimizations:
+            sd_hijack.apply_optimizations()

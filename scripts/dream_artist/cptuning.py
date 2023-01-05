@@ -2,6 +2,8 @@ import os
 import sys
 import traceback
 
+import cv2
+import numpy as np
 import torch
 import tqdm
 import html
@@ -24,6 +26,8 @@ from modules.textual_inversion.image_embedding import (embedding_to_b64, embeddi
                                                   caption_image_overlay)
 from .convnext_discriminator import XPDiscriminator
 import json
+from torchvision import transforms
+import random
 
 class Embedding:
     def __init__(self, vec, name, step=None):
@@ -335,9 +339,18 @@ def get_cfg_range(cfg_text:str):
     else:
         return float(cfg_text), float(cfg_text), dy_cfg_f
 
-def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_directory, training_width, training_height, steps, create_image_every, save_embedding_every, template_file, save_image_with_stored_embedding, preview_from_txt2img, preview_prompt, preview_negative_prompt, preview_steps, preview_sampler_index, preview_cfg_scale, preview_seed, preview_width, preview_height,
-                    cfg_scale, classifier_path, use_negative, use_rec, rec_loss_w, neg_lr_w, ema_w, ema_rep_step, ema_w_neg, ema_rep_step_neg, adam_beta1, adam_beta2, fw_pos_only, accumulation_steps,
+def set_seed(seed):
+    torch.manual_seed(seed)  # cpu
+    torch.cuda.manual_seed(seed)  # gpu
+    torch.backends.cudnn.deterministic = True  # cudnn
+    np.random.seed(seed)  # numpy
+    random.seed(seed)  # random and transforms
+
+def train_embedding(embedding_name, seed, learn_rate, batch_size, data_root, log_directory, training_width, training_height, steps, create_image_every, save_embedding_every, template_file, save_image_with_stored_embedding, preview_from_txt2img, preview_prompt, preview_negative_prompt, preview_steps, preview_sampler_index, preview_cfg_scale, preview_seed, preview_width, preview_height,
+                    cfg_scale, classifier_path, use_negative, use_att_map, use_rec, rec_loss_w, neg_lr_w, ema_w, ema_rep_step, ema_w_neg, ema_rep_step_neg, adam_beta1, adam_beta2, fw_pos_only, accumulation_steps,
                     unet_train, unet_lr):
+    set_seed(seed)
+
     save_embedding_every = save_embedding_every or 0
     create_image_every = create_image_every or 0
     validate_train_inputs(embedding_name, learn_rate, batch_size, data_root, template_file, steps, save_embedding_every, create_image_every, log_directory, name="embedding")
@@ -414,9 +427,8 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
         'size': [training_width, training_height],
         'neg': use_negative,
         'rec': use_rec,
+        'seed': seed,
         'prompt_len': embedding.vec.shape,
-        'ema': [ema_w, ema_w_neg],
-        'ema_steps': [ema_rep_step, ema_rep_step_neg],
     }
     if use_negative:
         hyper_param['prompt_len_neg'] = embedding_neg.vec.shape
@@ -515,9 +527,12 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
                 c_in = cond_model([entry.cond_text for entry in entries])
 
             x = torch.stack([entry.latent for entry in entries]).to(devices.device)
-            att_mask = torch.stack([(entry.att_mask if entry.att_mask is not None else torch.ones_like(entry.latent)) for entry in entries]).to(devices.device)
 
-            output = shared.sd_model(x, c_in, scale=(cfg_l, cfg_h), att_mask=att_mask, dy_cfg_f=dy_cfg_f)
+            if use_att_map:
+                att_mask = torch.stack([(entry.att_mask if entry.att_mask is not None else torch.ones_like(entry.latent)) for entry in entries]).to(devices.device)
+                output = shared.sd_model(x, c_in, scale=(cfg_l, cfg_h), att_mask=att_mask, dy_cfg_f=dy_cfg_f)
+            else:
+                output = shared.sd_model(x, c_in, scale=(cfg_l, cfg_h), att_mask=None, dy_cfg_f=dy_cfg_f)
 
             if disc is not None or use_rec:
                 x_samples_ddim = shared.sd_model.decode_first_stage.__wrapped__(shared.sd_model, output[2])  # forward with grad
@@ -660,6 +675,10 @@ def train_embedding(embedding_name, learn_rate, batch_size, data_root, log_direc
             last_saved_image, last_text_info = images.save_image(image, images_dir, "", p.seed, p.prompt, shared.opts.samples_format, processed.infotexts[0], p=p, forced_filename=forced_filename, save_to_dirs=False)
             last_saved_image += f", prompt: {preview_text}"
 
+            #set seed, seed is change by p
+            seed+=1
+            set_seed(seed)
+
         shared.state.job_no = embedding.step
 
         shared.state.textinfo = f"""
@@ -706,7 +725,6 @@ def save_embedding(embedding, checkpoint, embedding_name, filename, remove_cache
             embedding_neg.name = embedding_name+'-neg'
             embedding_neg.save(f'{filename[:-3]}-neg.pt')
 
-            #torch.save({f'part{i}':layer.state_dict() for i,layer in enumerate(unet_layers)}, f'{filename[:-3]}-unet.ckpt')
     except:
         embedding.sd_checkpoint = old_sd_checkpoint
         embedding.sd_checkpoint_name = old_sd_checkpoint_name
@@ -719,5 +737,60 @@ def save_embedding(embedding, checkpoint, embedding_name, filename, remove_cache
             embedding_neg.name = old_embedding_name+'-neg'
             embedding_neg.cached_checksum = old_cached_checksum
 
-            #torch.save({f'part{i}': layer.state_dict() for i, layer in enumerate(unet_layers)}, f'{filename[:-3]}-unet.ckpt')
         raise
+
+def proc_att(data_root, training_width, training_height):
+    shared.sd_model.first_stage_model.to(devices.device)
+
+    shared.state.textinfo = "Processing Att-Map"
+    shared.state.job_count = 0
+
+    att_map=[None]
+    att_proc=[None]
+
+    with torch.autocast("cuda"):
+        ds = DA_dataset.DataAtt(data_root=data_root, width=training_width, height=training_height)
+
+    def att_hook(module, x, output):
+        h_ = x[0]
+        h_ = module.norm(h_)
+        q = module.q(h_)
+        k = module.k(h_)
+        v = att_map[0]
+
+        # compute attention
+        b, c, h, w = q.shape
+        q = q.reshape(b, c, h * w)
+        q = q.permute(0, 2, 1)  # b,hw,c
+        k = k.reshape(b, c, h * w)  # b,c,hw
+        w_ = torch.bmm(q, k)  # b,hw,hw    w[b,i,j]=sum_c q[b,i,c]k[b,c,j]
+        w_ = w_ * (int(c) ** (-0.5))
+        w_ = torch.nn.functional.softmax(w_, dim=2)
+
+        # attend to values
+        v = v.reshape(b, 1, h * w)
+        w_ = w_.permute(0, 2, 1)  # b,hw,hw (first hw of k, second of q)
+        proc = (torch.bmm(v, w_)-v.mean() + v).clamp(0.,1.)
+        att_proc[0] = proc.view(b,1,h,w)  # b, c,hw (hw of q) h_[b,c,j] = sum_i v[b,c,i] w_[b,i,j]
+        #att_proc[0] = v.view(b, 1, h, w)
+
+    hook = shared.sd_model.first_stage_model.encoder.mid.attn_1.register_forward_hook(att_hook)
+
+    pbar = tqdm.tqdm(enumerate(ds), total=len(ds))
+    import torch.nn.functional as F
+    for i, entries in pbar:
+        with torch.autocast("cuda"):
+            timg = torch.cat([entry.timg for entry in entries]).to(devices.device)
+            att_map[0]=torch.stack([(entry.att_mask if entry.att_mask is not None else torch.ones_like(entry.latent)) for entry in entries]).to(devices.device)
+            #att_map[0] = F.interpolate(timg, scale_factor=1/8, mode='bicubic')
+            shared.sd_model.encode_first_stage(timg)
+
+            att_map_new = att_proc[0].detach().cpu().squeeze(0)#.permute(1,2,0).numpy().astype(np.uint8)
+            #att_map_new = cv2.resize(att_map_new, (0, 0), fx=8, fy=8, interpolation=cv2.INTER_CUBIC)
+            att_map_new = transforms.ToPILImage()(att_map_new)
+            #att_map_new = att_map_new.resize((int(att_map_new.size[0]*8), int(att_map_new.size[1]*8)), PIL.Image.BICUBIC)
+            att_map_new.save(entries[0].filename[:entries[0].filename.rfind('.')]+'_att_proc'+entries[0].filename[entries[0].filename.rfind('.'):])
+
+        shared.state.job_no = i
+
+    hook.remove()

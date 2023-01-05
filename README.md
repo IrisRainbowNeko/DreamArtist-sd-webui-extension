@@ -51,16 +51,36 @@ Remember to check the option below, otherwise the preview is wrong.
 Fill the trained positive and negative embedding into txt2img to generate with DreamArtist prompt.
 ![](imgs/gen.jpg)
 
+### Attention Mask
+Attention Mask can strengthen or weaken the learning intensity of some local areas. 
+Attention Mask is a grayscale image whose grayscale values are related to the learning intensity show in the following table.
+
+| grayscale | 0% | 25% | 50%  | 75%  | 100% |
+|-----------|----|-----|------|------|------|
+| intensity | 0% | 50% | 100% | 300% | 500% |
+
+The Attention Mask is in the same folder as the training image and its name is the name of the training image + "_att".
+You can choose whether to enable Attention Mask for training.
+![](imgs/att_map.jpg)
+
+Since there is a self-attention operation in VAE, it may change the distribution of features. 
+In the ***Process Att-Map*** tab, it can superimpose the attention map of self-attention on the original Att-Map.
+
+### Dynamic CFG
+Dynamic CFG can improve the performance, especially when the data set is large (>20). 
+For example, linearly from 1.5 to 3.0 (1.5-3.0), or with a 0-π/2 cycle of cosine (1.5-3.0:cos), or with a -π/2-0 cycle of cosine (1.5-3.0:cos2).
+Or you can also customize non-linear functions, such as 2.5-3.5:torch.sqrt(rate), where rate is a variable from 0-1.
+
 ## Tested models (need ema version):
++ Stable Diffusion v1.4
 + Stable Diffusion v1.5
 + animefull-latest
 + Anything v3.0
++ momoko-e
 
 Embeddings can be transferred between different models of the same dataset.
 
 ## Pre-trained embeddings:
-
-
 
 [Download](https://github.com/7eu7d7/DreamArtist-stable-diffusion/releases/tag/embeddings_v2)
 
