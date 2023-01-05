@@ -61,7 +61,7 @@ def on_ui_tabs():
                         rec_train = gr.Checkbox(label='Train with reconstruction', value=False, interactive=True)
                         att_map = gr.Checkbox(label='Attention Map', value=True, interactive=True)
                         unet_train = gr.Checkbox(label='Train U-Net', value=False, interactive=True, visible=False)
-                    cfg_scale = gr.Textbox(label='CFG scale', value="3.0", interactive=True)
+                    cfg_scale = gr.Textbox(label='CFG scale (dynamic cfg: low,high:type e.g. 1.0-3.5:cos)', value="3.0", interactive=True)
                     rec_loss_w = gr.Slider(minimum=0.01, maximum=1.0, step=0.01, label="Reconstruction loss weight", value=1.0, interactive=True)
                     neg_lr_w = gr.Slider(minimum=0.2, maximum=5.0, step=0.05, label="Negative lr weight", value=1.0, interactive=True)
                     disc_path = gr.Textbox(label='Classifier path', placeholder="Path to classifier ckpt, can be empty", value="", interactive=True)
