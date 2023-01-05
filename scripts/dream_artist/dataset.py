@@ -183,3 +183,72 @@ class PersonalizedBase(Dataset):
             res.append(entry)
 
         return res
+
+class DataAtt(Dataset):
+    def __init__(self, data_root, width, height, device=None):
+        re_word = re.compile(shared.opts.dataset_filename_word_regex) if len(shared.opts.dataset_filename_word_regex) > 0 else None
+
+        self.width = width
+        self.height = height
+        self.batch_size = 1
+
+        self.dataset = []
+
+        assert data_root, 'dataset directory not specified'
+        assert os.path.isdir(data_root), "Dataset directory doesn't exist"
+        assert os.listdir(data_root), "Dataset directory is empty"
+
+        # rasize and crop, not change the image ratio
+        TR = transforms.Compose([
+            transforms.Resize(min(self.width, self.height), interpolation=transforms.InterpolationMode.BICUBIC),
+            #transforms.CenterCrop(min(self.width, self.height)),
+            RatioCrop(self.width, self.height),
+            transforms.ToTensor()
+        ])
+
+        self.image_paths = [os.path.join(data_root, file_path) for file_path in os.listdir(data_root)]
+        print("Preparing dataset...")
+        for path in tqdm.tqdm(self.image_paths):
+            if path[:path.rfind('.')].endswith('_att'):
+                continue
+            try:
+                image = Image.open(path).convert('RGB')
+            except Exception:
+                continue
+
+            filename = os.path.basename(path)
+
+            torchdata = (TR(image) * 2. - 1.).to(device=device, dtype=torch.float32)
+
+            timg = torchdata.unsqueeze(dim=0)
+
+            entry = DatasetEntry(filename=path, timg=timg)
+
+            att_path=path[:path.rfind('.')] + '_att' + path[path.rfind('.'):]
+            if os.path.exists(att_path):
+                print(att_path)
+                att_mask = Image.open(att_path).convert('L').resize((self.width//8, self.height//8), PIL.Image.BICUBIC)
+
+                torchdata = transforms.ToTensor()(att_mask)
+                entry.att_mask = torchdata
+
+                self.dataset.append(entry)
+
+        assert len(self.dataset) > 0, "No images have been found in the dataset."
+        self.length = len(self.dataset)
+
+        self.dataset_length = len(self.dataset)
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, i):
+        res = []
+
+        for j in range(self.batch_size):
+            position = i * self.batch_size + j
+            entry = self.dataset[position]
+
+            res.append(entry)
+
+        return res
