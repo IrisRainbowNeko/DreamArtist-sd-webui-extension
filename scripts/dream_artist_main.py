@@ -115,7 +115,7 @@ def on_ui_tabs():
             with gr.Column():
                 with gr.Row():
                     seed = gr.Number(label='Seed', value=114514, precision=0, interactive=True)
-                    rand_seed_button = gr.Button(value=random_symbol, elem_id="refresh_train_embedding_name")
+                    rand_seed_button = gr.Button(value=random_symbol, elem_id="refresh_seed")
 
                 progressbar = gr.HTML(elem_id="da_progressbar")
                 da_output = gr.Text(elem_id="da_output", value="", show_label=False)
