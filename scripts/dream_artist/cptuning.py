@@ -346,9 +346,11 @@ def set_seed(seed):
     np.random.seed(seed)  # numpy
     random.seed(seed)  # random and transforms
 
-def train_embedding(embedding_name, seed, learn_rate, batch_size, data_root, log_directory, training_width, training_height, steps, create_image_every, save_embedding_every, template_file, save_image_with_stored_embedding, preview_from_txt2img, preview_prompt, preview_negative_prompt, preview_steps, preview_sampler_index, preview_cfg_scale, preview_seed, preview_width, preview_height,
+def train_embedding(_, embedding_name, seed, learn_rate, batch_size, data_root, log_directory, training_width, training_height, steps, create_image_every, save_embedding_every, template_file, save_image_with_stored_embedding, preview_from_txt2img, preview_prompt, preview_negative_prompt, preview_steps, preview_sampler_index, preview_cfg_scale, preview_seed, preview_width, preview_height,
                     cfg_scale, classifier_path, use_negative, use_att_map, use_rec, rec_loss_w, neg_lr_w, ema_w, ema_rep_step, ema_w_neg, ema_rep_step_neg, adam_beta1, adam_beta2, fw_pos_only, accumulation_steps,
                     unet_train, unet_lr):
+    # NOTE: the first `_` argument is the TaskID, which is not used in this function
+    # but is required by Automatic1111 to set the TaskID for the thread.
     set_seed(seed)
 
     save_embedding_every = save_embedding_every or 0
@@ -580,10 +582,11 @@ def train_embedding(embedding_name, seed, learn_rate, batch_size, data_root, log
 
         steps_done = embedding.step + 1
 
-        epoch_num = embedding.step // len(ds)
-        epoch_step = embedding.step % len(ds)
+        ds_len = ds.batch_size
+        epoch_num = embedding.step // ds_len
+        epoch_step = embedding.step % ds_len
 
-        pbar.set_description(f"[Epoch {epoch_num}: {epoch_step}/{len(ds)}]loss: {losses.mean():.7f}, "
+        pbar.set_description(f"[Epoch {epoch_num}: {epoch_step}/{ds_len}]loss: {losses.mean():.7f}, "
                              f"grad:{embedding.vec.grad.detach().cpu().abs().mean().item():.7f}, "
                              f"grad_neg:{embedding_neg.vec.grad.detach().cpu().abs().mean().item() if use_negative else 0:.7f}, "
                              f"lr_unet:{optimizer_unet.state_dict()['param_groups'][0]['lr']}")
@@ -596,7 +599,7 @@ def train_embedding(embedding_name, seed, learn_rate, batch_size, data_root, log
                            use_negative=use_negative, embedding_neg=embedding_neg, unet_layers=unet_part_list)
             embedding_yet_to_be_embedded = True
 
-        write_loss(log_directory, "prompt_tuning_loss.csv", embedding.step, len(ds), {
+        write_loss(log_directory, "prompt_tuning_loss.csv", embedding.step, ds_len, {
             "loss": f"{losses.mean():.7f}",
             "learn_rate": scheduler.learn_rate
         })
@@ -614,7 +617,7 @@ def train_embedding(embedding_name, seed, learn_rate, batch_size, data_root, log
                 do_not_save_samples=True,
                 do_not_reload_embeddings=True,
                 negative_prompt=preview_prompt.replace(ds.placeholder_token, ds.placeholder_token + '-neg') if use_negative else None,
-                cfg_scale=cfg_scale if use_negative else 1.0,
+                cfg_scale=float(cfg_scale) if use_negative else 1.0,
             )
 
             if preview_from_txt2img:
@@ -631,7 +634,7 @@ def train_embedding(embedding_name, seed, learn_rate, batch_size, data_root, log
                 p.prompt = entries[0].cond_text
                 if use_negative:
                     p.negative_prompt = entries[0].cond_text_neg.replace(ds.placeholder_token, ds.placeholder_token + '-neg')
-                    p.cfg_scale = cfg_scale
+                    p.cfg_scale = float(cfg_scale)
                 p.steps = 20
                 p.width = training_width
                 p.height = training_height
