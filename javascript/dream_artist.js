@@ -22,7 +22,6 @@ function start_training_dreamartist() {
         })
 
     const argsToArray = args_to_array(arguments);
-    argsToArray.push(argsToArray[0])
     argsToArray[0] = id;
     return argsToArray
 }
