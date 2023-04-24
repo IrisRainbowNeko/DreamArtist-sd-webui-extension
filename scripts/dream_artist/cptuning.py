@@ -346,7 +346,7 @@ def set_seed(seed):
     np.random.seed(seed)  # numpy
     random.seed(seed)  # random and transforms
 
-def train_embedding(embedding_name, seed, learn_rate, batch_size, data_root, log_directory, training_width, training_height, steps, create_image_every, save_embedding_every, template_file, save_image_with_stored_embedding, preview_from_txt2img, preview_prompt, preview_negative_prompt, preview_steps, preview_sampler_index, preview_cfg_scale, preview_seed, preview_width, preview_height,
+def train_embedding(id_task, embedding_name, seed, learn_rate, batch_size, data_root, log_directory, training_width, training_height, steps, create_image_every, save_embedding_every, template_file, save_image_with_stored_embedding, preview_from_txt2img, preview_prompt, preview_negative_prompt, preview_steps, preview_sampler_index, preview_cfg_scale, preview_seed, preview_width, preview_height,
                     cfg_scale, classifier_path, use_negative, use_att_map, use_rec, rec_loss_w, neg_lr_w, ema_w, ema_rep_step, ema_w_neg, ema_rep_step_neg, adam_beta1, adam_beta2, fw_pos_only, accumulation_steps,
                     unet_train, unet_lr):
     set_seed(seed)
@@ -631,7 +631,7 @@ def train_embedding(embedding_name, seed, learn_rate, batch_size, data_root, log
                 p.prompt = entries[0].cond_text
                 if use_negative:
                     p.negative_prompt = entries[0].cond_text_neg.replace(ds.placeholder_token, ds.placeholder_token + '-neg')
-                    p.cfg_scale = cfg_scale
+                    p.cfg_scale = 7.0
                 p.steps = 20
                 p.width = training_width
                 p.height = training_height
@@ -739,7 +739,7 @@ def save_embedding(embedding, checkpoint, embedding_name, filename, remove_cache
 
         raise
 
-def proc_att(data_root, training_width, training_height):
+def proc_att(id_task, data_root, training_width, training_height):
     shared.sd_model.first_stage_model.to(devices.device)
 
     shared.state.textinfo = "Processing Att-Map"

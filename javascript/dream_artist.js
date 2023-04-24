@@ -1,9 +1,17 @@
 
 function start_training_dreamartist(){
-    requestProgress('da')
     gradioApp().querySelector('#da_error').innerHTML=''
 
-    return args_to_array(arguments)
+    var id = randomId()
+    requestProgress(id, gradioApp().getElementById('da_output'), gradioApp().getElementById('da_gallery'), function(){}, function(progress){
+        gradioApp().getElementById('da_progress').innerHTML = progress.textinfo
+    })
+
+    var res = args_to_array(arguments)
+
+    res[0] = id
+
+    return res
 }
 
 onUiUpdate(function(){
