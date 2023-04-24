@@ -137,7 +137,7 @@ class PersonalizedBase(Dataset):
             self.dataset.append(entry)
 
         assert len(self.dataset) > 0, "No images have been found in the dataset."
-        self.length = np.ceil(len(self.dataset) * repeats / batch_size)
+        self.length = int(np.ceil(len(self.dataset) * repeats / batch_size))
 
         self.dataset_length = len(self.dataset)
         self.indexes = None

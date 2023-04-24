@@ -21,6 +21,7 @@ def on_ui_train_tabs(params):
 
 def on_ui_tabs():
     with gr.Blocks(analytics_enabled=False) as dream_artist_interface:
+        dummy_component = gr.Label(visible=False)
         with gr.Row().style(equal_height=False):
             with gr.Tabs(elem_id="da_train_tabs"):
                 with gr.Tab(label="DreamArtist Create embedding"):
@@ -99,7 +100,7 @@ def on_ui_tabs():
 
                     with gr.Row():
                         interrupt_training = gr.Button(value="Interrupt", interactive=True)
-                        train_embedding = gr.Button(value="Train Embedding", variant='primary', interactive=True)
+                        train_embedding_da = gr.Button(value="Train Embedding DA", variant='primary', interactive=True)
 
                 with gr.Tab(label="Process Att-Map"):
                     gr.HTML(value='<p style="margin-bottom: 0.7em">Since there is a self-attention operation in VAE, it may change the distribution of features. This processing will superimpose the attention map of self-attention on the original Att-Map.</p>')
@@ -150,14 +151,15 @@ def on_ui_tabs():
             ]
         )
 
-        train_embedding.click(
+        train_embedding_da.click(
             fn=wrap_gradio_gpu_call(dream_artist.ui.train_embedding, extra_outputs=[gr.update()]),
             _js="start_training_dreamartist",
             inputs=[
                 # this is a dummy argument because the first argument needs to be the TaskID, used in
                 # modules/call_queue.py to set the `task_id`.  The `task_id` is required for the live preview.
                 # the argsig of dreamartist.cptuning.train_embedding has been modified to take this into account
-                train_embedding_name,
+                dummy_component,
+                
                 train_embedding_name,
                 seed,
                 embedding_learn_rate,
@@ -201,6 +203,7 @@ def on_ui_tabs():
         proc_att.click(
             fn=wrap_gradio_gpu_call(dream_artist.ui.proc_att, extra_outputs=[gr.update()]),
             inputs=[
+                dummy_component,
                 data_dir,
                 att_width,
                 att_height
