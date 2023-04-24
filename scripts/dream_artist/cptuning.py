@@ -588,8 +588,7 @@ def train_embedding(id_task, embedding_name, seed, learn_rate, batch_size, data_
 
         pbar.set_description(f"[Epoch {epoch_num}: {epoch_step}/{ds_len}]loss: {losses.mean():.7f}, "
                              f"grad:{embedding.vec.grad.detach().cpu().abs().mean().item():.7f}, "
-                             f"grad_neg:{embedding_neg.vec.grad.detach().cpu().abs().mean().item() if use_negative else 0:.7f}, "
-                             f"lr_unet:{optimizer_unet.state_dict()['param_groups'][0]['lr']}")
+                             f"grad_neg:{embedding_neg.vec.grad.detach().cpu().abs().mean().item() if use_negative else 0:.7f}")
 
         if embedding_dir is not None and steps_done % save_embedding_every == 0:
             # Before saving, change name to match current checkpoint.
