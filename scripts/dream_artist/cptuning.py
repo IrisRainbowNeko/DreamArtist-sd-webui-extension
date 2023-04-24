@@ -537,7 +537,10 @@ def train_embedding(id_task, embedding_name, seed, learn_rate, batch_size, data_
                 output = shared.sd_model(x, c_in, scale=(cfg_l, cfg_h), att_mask=None, dy_cfg_f=dy_cfg_f)
 
             if disc is not None or use_rec:
-                x_samples_ddim = shared.sd_model.decode_first_stage.__wrapped__(shared.sd_model, output[2])  # forward with grad
+                if hasattr(shared.sd_model.decode_first_stage, '__wrapped__'):
+                    x_samples_ddim = shared.sd_model.decode_first_stage.__wrapped__(shared.sd_model, output[2])  # forward with grad
+                else:
+                    x_samples_ddim = shared.sd_model.decode_first_stage(output[2])
 
             if disc is not None:
                 # loss = ce(disc.get_all(x_samples_ddim), disc_label)
