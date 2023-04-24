@@ -155,7 +155,11 @@ def on_ui_tabs():
             fn=wrap_gradio_gpu_call(dream_artist.ui.train_embedding, extra_outputs=[gr.update()]),
             _js="start_training_dreamartist",
             inputs=[
+                # this is a dummy argument because the first argument needs to be the TaskID, used in
+                # modules/call_queue.py to set the `task_id`.  The `task_id` is required for the live preview.
+                # the argsig of dreamartist.cptuning.train_embedding has been modified to take this into account
                 dummy_component,
+                
                 train_embedding_name,
                 seed,
                 embedding_learn_rate,
