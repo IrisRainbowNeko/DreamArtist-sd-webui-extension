@@ -1,3 +1,11 @@
+
+# DreamArtist++
+***DreamArtist++ for training lora with just one image has been released, try it now:***
+
+[HCP-Diffusion](https://github.com/7eu7d7/HCP-Diffusion)
+
+All future updates of the DreamArtist series will be released in this new framework.
+
 # DreamArtist (webui Eextension)
 
 Paper: [![arXiv](https://img.shields.io/badge/arXiv-2211.11337-b31b1b.svg)](https://arxiv.org/abs/2211.11337)
