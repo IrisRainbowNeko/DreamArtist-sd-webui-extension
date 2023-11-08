@@ -7,7 +7,7 @@ import modules
 from modules.ui import create_refresh_button, setup_progressbar, random_symbol
 from modules import sd_hijack, shared
 from modules.paths import script_path
-from webui import wrap_gradio_gpu_call
+from modules.call_queue import wrap_gradio_gpu_call
 import scripts.dream_artist as dream_artist
 import argparse
 
